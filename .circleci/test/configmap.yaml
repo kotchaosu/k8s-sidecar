@@ -7,3 +7,14 @@ metadata:
 data:
   hello.world: |-
      Hello World!
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-configmap
+  labels:
+    somelabel: "somesome"
+data:
+  script.sh: |-
+     #!/bin/sh
+     echo "Welcome from the script"

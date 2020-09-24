@@ -39,6 +39,8 @@ def main():
     url = os.getenv("REQ_URL")
     payload = os.getenv("REQ_PAYLOAD")
 
+    script = os.getenv("SCRIPT")
+
     config.load_incluster_config()
     print(f"{timestamp()} Config for cluster api loaded...")
     currentNamespace = open("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read()
@@ -49,7 +51,7 @@ def main():
         configuration.debug = False
         client.Configuration.set_default(configuration)
 
-    uniqueFilenames = os.getenv("UNIQUE_FILENAMES") 
+    uniqueFilenames = os.getenv("UNIQUE_FILENAMES")
     if uniqueFilenames is not None and uniqueFilenames.lower() == "true":
         print(f"{timestamp()} Unique filenames will be enforced.")
         uniqueFilenames = True
@@ -59,11 +61,15 @@ def main():
 
     if os.getenv("METHOD") == "LIST":
         for res in resources:
-            listResources(label, labelValue, targetFolder, url, method, payload,
-                          currentNamespace, folderAnnotation, res, uniqueFilenames)
+            listResources(label, labelValue, targetFolder,
+                          url, method, payload,
+                          currentNamespace, folderAnnotation, res,
+                          uniqueFilenames, script)
     else:
-        watchForChanges(os.getenv("METHOD"), label, labelValue, targetFolder, url, method,
-                        payload, currentNamespace, folderAnnotation, resources, uniqueFilenames)
+        watchForChanges(os.getenv("METHOD"), label, labelValue, targetFolder,
+                        url, method, payload,
+                        currentNamespace, folderAnnotation, resources,
+                        uniqueFilenames, script)
 
 
 if __name__ == "__main__":

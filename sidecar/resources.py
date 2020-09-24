@@ -13,7 +13,9 @@ from kubernetes.client.rest import ApiException
 from urllib3.exceptions import ProtocolError
 from urllib3.exceptions import MaxRetryError
 
-from helpers import request, writeTextToFile, removeFile, timestamp, uniqueFilename
+from helpers import (request, writeTextToFile, removeFile, timestamp,
+                     uniqueFilename, execute)
+
 
 _list_namespaced = {
     "secret": "list_namespaced_secret",
@@ -58,16 +60,19 @@ def _get_destination_folder(metadata, defaultFolder, folderAnnotation):
 
 
 def listResources(label, labelValue, targetFolder, url, method, payload,
-                  currentNamespace, folderAnnotation, resource, uniqueFilenames):
+                  currentNamespace, folderAnnotation, resource,
+                  uniqueFilenames, script):
     v1 = client.CoreV1Api()
     namespace = os.getenv("NAMESPACE", currentNamespace)
     # Filter resources based on label and value or just label
-    labelSelector=f"{label}={labelValue}" if labelValue else label
+    labelSelector = f"{label}={labelValue}" if labelValue else label
 
     if namespace == "ALL":
-        ret = getattr(v1, _list_for_all_namespaces[resource])(label_selector=labelSelector)
+        ret = getattr(v1, _list_for_all_namespaces[resource])(
+            label_selector=labelSelector)
     else:
-        ret = getattr(v1, _list_namespaced[resource])(namespace=namespace, label_selector=labelSelector)
+        ret = getattr(v1, _list_namespaced[resource])(
+            namespace=namespace, label_selector=labelSelector)
 
     # For all the found resources
     for sec in ret.items:
@@ -96,21 +101,31 @@ def listResources(label, labelValue, targetFolder, url, method, payload,
 
             writeTextToFile(destFolder, filename, filedata)
 
+    if script:
+        execute(script)
+
     if url:
         request(url, method, payload)
 
 
-def _watch_resource_iterator(label, labelValue, targetFolder, url, method, payload,
-                             currentNamespace, folderAnnotation, resource, uniqueFilenames):
+def _watch_resource_iterator(label, labelValue, targetFolder,
+                             url, method, payload,
+                             currentNamespace, folderAnnotation, resource,
+                             uniqueFilenames, script):
     v1 = client.CoreV1Api()
     namespace = os.getenv("NAMESPACE", currentNamespace)
     # Filter resources based on label and value or just label
-    labelSelector=f"{label}={labelValue}" if labelValue else label
+    labelSelector = f"{label}={labelValue}" if labelValue else label
 
     if namespace == "ALL":
-        stream = watch.Watch().stream(getattr(v1, _list_for_all_namespaces[resource]), label_selector=labelSelector)
+        stream = watch.Watch().stream(
+            getattr(v1, _list_for_all_namespaces[resource]),
+            label_selector=labelSelector)
     else:
-        stream = watch.Watch().stream(getattr(v1, _list_namespaced[resource]), namespace=namespace, label_selector=labelSelector)
+        stream = watch.Watch().stream(
+            getattr(v1, _list_namespaced[resource]),
+            namespace=namespace,
+            label_selector=labelSelector)
 
     # Process events
     for event in stream:
@@ -153,6 +168,10 @@ def _watch_resource_iterator(label, labelValue, targetFolder, url, method, paylo
                                               resource_name = metadata.name)
 
                 removeFile(destFolder, filename)
+
+        if script:
+            execute(script)
+
         if url:
             request(url, method, payload)
 
@@ -180,22 +199,28 @@ def _watch_resource_loop(mode, *args):
             print(f"{timestamp()} Received unknown exception: {e}\n")
 
 
-def watchForChanges(mode, label, labelValue, targetFolder, url, method, payload,
-                    currentNamespace, folderAnnotation, resources, uniqueFilenames):
+def watchForChanges(mode, label, labelValue, targetFolder,
+                    url, method, payload,
+                    currentNamespace, folderAnnotation, resources,
+                    uniqueFilenames, script):
 
     firstProc = Process(target=_watch_resource_loop,
-                        args=(mode, label, labelValue, targetFolder, url, method, payload,
-                              currentNamespace, folderAnnotation, resources[0], uniqueFilenames)
+                        args=(mode, label, labelValue, targetFolder,
+                              url, method, payload,
+                              currentNamespace, folderAnnotation, resources[0],
+                              uniqueFilenames, script)
                         )
-    firstProc.daemon=True
+    firstProc.daemon = True
     firstProc.start()
 
     if len(resources) == 2:
         secProc = Process(target=_watch_resource_loop,
-                          args=(mode, label, labelValue, targetFolder, url, method, payload,
-                                currentNamespace, folderAnnotation, resources[1], uniqueFilenames)
+                          args=(mode, label, labelValue, targetFolder,
+                                url, method, payload,
+                                currentNamespace, folderAnnotation, resources[1],
+                                uniqueFilenames, script)
                           )
-        secProc.daemon=True
+        secProc.daemon = True
         secProc.start()
 
     while True:

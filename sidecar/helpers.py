@@ -3,6 +3,7 @@
 import hashlib
 import os
 import errno
+import subprocess
 
 import requests
 from requests.packages.urllib3.util.retry import Retry
@@ -112,3 +113,15 @@ def uniqueFilename(filename, namespace, resource, resource_name):
     resource_name -- the name of the "configmap" or "secret" resource instance.
     """
     return "namespace_" + namespace + "." + resource + "_" + resource_name + "." + filename
+
+
+def execute(script_path):
+    try:
+        result = subprocess.run(["sh", script_path],
+                                capture_output=True,
+                                check=True)
+        print(f"Script stdout: {result.stdout}")
+        print(f"Script stderr: {result.stderr}")
+        print(f"Script exit code: {result.returncode}")
+    except subprocess.CalledProcessError as e:
+        print(f"Script failed with error: {e}")
