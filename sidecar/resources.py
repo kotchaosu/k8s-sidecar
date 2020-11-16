@@ -74,6 +74,8 @@ def listResources(label, labelValue, targetFolder, url, method, payload,
         ret = getattr(v1, _list_namespaced[resource])(
             namespace=namespace, label_selector=labelSelector)
 
+    files_changed = False
+
     # For all the found resources
     for sec in ret.items:
         metadata = sec.metadata
@@ -99,12 +101,12 @@ def listResources(label, labelValue, targetFolder, url, method, payload,
                                           resource      = resource,
                                           resource_name = metadata.name)
 
-            writeTextToFile(destFolder, filename, filedata)
+            files_changed |= writeTextToFile(destFolder, filename, filedata)
 
     if script:
         execute(script)
 
-    if url:
+    if url and files_changed:
         request(url, method, payload)
 
 
@@ -133,6 +135,8 @@ def _watch_resource_iterator(label, labelValue, targetFolder,
 
         print(f"{timestamp()} Working on {resource} {metadata.namespace}/{metadata.name}")
 
+        files_changed = False
+
         # Get the destination folder
         destFolder = _get_destination_folder(metadata, targetFolder, folderAnnotation)
 
@@ -156,7 +160,7 @@ def _watch_resource_iterator(label, labelValue, targetFolder,
                                               resource      = resource,
                                               resource_name = metadata.name)
 
-                writeTextToFile(destFolder, filename, filedata)
+                files_changed |= writeTextToFile(destFolder, filename, filedata)
             else:
                 # Get filename from event
                 filename = data_key[:-4] if data_key.endswith(".url") else data_key
@@ -166,13 +170,12 @@ def _watch_resource_iterator(label, labelValue, targetFolder,
                                               namespace     = metadata.namespace,
                                               resource      = resource,
                                               resource_name = metadata.name)
-
-                removeFile(destFolder, filename)
+                files_changed |= removeFile(destFolder, filename)
 
         if script:
             execute(script)
 
-        if url:
+        if url and files_changed:
             request(url, method, payload)
 
 
@@ -180,10 +183,10 @@ def _watch_resource_loop(mode, *args):
     while True:
         try:
             # Always wait to slow down the loop in case of exceptions
-            sleep(os.getenv("ERROR_THROTTLE_SLEEP", 5))
+            sleep(int(os.getenv("ERROR_THROTTLE_SLEEP", 5)))
             if mode == "SLEEP":
                 listResources(*args)
-                sleep(os.getenv("SLEEP_TIME", 60))
+                sleep(int(os.getenv("SLEEP_TIME", 60)))
             else:
                 _watch_resource_iterator(*args)
         except ApiException as e:

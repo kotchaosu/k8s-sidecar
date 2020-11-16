@@ -41,7 +41,11 @@ def main():
 
     script = os.getenv("SCRIPT")
 
-    config.load_incluster_config()
+    try:
+      config.load_kube_config()
+    except:
+      config.load_incluster_config()
+
     print(f"{timestamp()} Config for cluster api loaded...")
     currentNamespace = open("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read()
 
